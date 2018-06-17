@@ -1,0 +1,56 @@
+import pandas as pd
+import numpy as np
+import random as rnd
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC, LinearSVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.linear_model import Perceptron
+from sklearn.linear_model import SGDClassifier
+from sklearn.tree import DecisionTreeClassifier
+
+train_df = pd.read_csv("/Users/Christine/Downloads/train.csv")
+test_df = pd.read_csv("/Users/Christine/Downloads/test.csv")
+combine = [train_df, test_df]
+
+# describing the features of the data
+print(train_df.columns.values)
+
+# preview the data
+print(train_df.head())
+
+# figuring out the data type
+print(train_df.info())
+print(test_df.info())
+
+# the dataset description
+print(train_df.describe())
+print(train_df.describe(include=['O']))
+
+# analyze the survival rate by pivoting features
+print(train_df[['Pclass','Survived']].groupby(['Pclass'], as_index=False).mean().sort_values(by='Survived', ascending=False))
+print(train_df[['Sex','Survived']].groupby(['Sex'], as_index=False).mean().sort_values(by='Survived', ascending=False))
+print(train_df[['SibSp','Survived']].groupby(['SibSp'], as_index=False).mean().sort_values(by='Survived', ascending=False))
+print(train_df[['Parch','Survived']].groupby(['Parch'], as_index=False).mean().sort_values(by='Survived', ascending=False))
+
+# visualize the age values
+g = sns.FacetGrid(train_df, col='Survived')
+g.map(plt.hist, 'Age', bins=20)
+
+# how's the class related to the survival rate?
+# don't know why this is here, but
+# grid = sns.FacetGrid(train_df, col='Pclass', hue='Survived')
+grid = sns.FacetGrid(train_df, col='Survived', row='Pclass', size=2.2, aspect=1.6)
+grid.map(plt.hist, 'Age', alpha=.5, bins=20)
+grid.add_legend();
+
+# let's make graphs covering both Sex and Embarked features
+grid = sns.FacetGrid(train_df, row='Embarked', size=2.2, aspect=1.6)
+grid.map(sns.pointplot, 'Pclass', 'Survived', 'Sex', palette = 'deep')
+grid.add_legend()
+plt.show()
