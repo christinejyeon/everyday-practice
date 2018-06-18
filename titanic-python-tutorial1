@@ -53,4 +53,71 @@ grid.add_legend();
 grid = sns.FacetGrid(train_df, row='Embarked', size=2.2, aspect=1.6)
 grid.map(sns.pointplot, 'Pclass', 'Survived', 'Sex', palette = 'deep')
 grid.add_legend()
-plt.show()
+
+# grid = sns.FacetGrid(train_df, col='Embarked', hue='Survived', palette = {0:'k',1:'w'})
+grid = sns.FacetGrid(train_df, row='Embarked', col='Survived', size=2.2, aspect=1.6)
+grid.map(sns.barplot, 'Sex', 'Fare', alpha=.5, ci=None)
+grid.add_legend()
+
+# correcting: going to drop the features that we don't need for analysis
+print("Before", train_df.shape, test_df.shape, combine[0].shape, combine[1].shape)
+train_df = train_df.drop(['Ticket', 'Cabin'], axis = 1)
+test_df = test_df.drop(['Ticket', 'Cabin'], axis = 1)
+combine = [train_df, test_df]
+print("After", train_df.shape, test_df.shape, combine[0].shape, combine[1].shape)
+
+# going to create new feature extracting from existing
+# the reason for doing this: because there was an assumption above
+# regarding that most titles band age group, and
+# some titles definitely survived while other titles did not
+for dataset in combine:
+    dataset['Title'] = dataset.Name.str.extract(' ([A-Za-z]+)\.', expand = False)
+print(pd.crosstab(train_df['Title'], train_df['Sex']))
+
+for dataset in combine:
+    dataset['Title'] = dataset['Title'].replace(['Lady', 'Countess', 'Capt', 'Col', \
+        'Don', 'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer', 'Dona'], 'Rare')
+    dataset['Title'] = dataset['Title'].replace('Mlle','Miss')
+    dataset['Title'] = dataset['Title'].replace('Ms','Miss')
+    dataset['Title'] = dataset['Title'].replace('Mme', 'Mrs')
+print(train_df[['Title','Survived']].groupby(['Title'], as_index=False).mean())
+
+title_mapping = {"Mr":1, "Miss":2, "Mrs":3, "Master":4, "Rare":5}
+for dataset in combine:
+    dataset['Title'] = dataset['Title'].map(title_mapping)
+    dataset['Title'] = dataset['Title'].fillna(0)
+print(train_df.head())
+
+# Now we can drop the 'Name' feature!
+train_df = train_df.drop(['Name','PassengerId'], axis = 1)
+test_df = test_df.drop(['Name','PassengerId'], axis = 1)
+combine = [train_df, test_df]
+print(train_df.shape, test_df.shape)
+
+# convert strings to numerical values
+for dataset in combine:
+    dataset['Sex'] = dataset['Sex'].map( {'female':1, 'male':0}).astype(int)
+print(train_df.head())
+
+# filling in the missing or null values, first with the Age feature
+# grid = sns.FacetGrid(train_df, col='Pclass', hue='Gender')
+grid = sns.FacetGrid(train_df, row='Pclass', col='Sex', size=2.2, aspect=0.6)
+grid.map(plt.hist, 'Age', alpha=.5, bins = 20)
+grid.add_legend()
+# going to start guessing ages, starting from making an array
+guess_ages = np.zeros((2,3))
+for dataset in combine:
+    for i in range(0,2):
+        for j in range(0,3):
+            guess_df = dataset[(dataset['Sex'] == i) & \
+                                (dataset['Pclass'] == j+1)]['Age'].dropna()
+            age_guess = guess_df.median()
+            guess_ages[i,j] = int( age_guess/0.5 + 0.5) * 0.5
+
+    for i in range(0,2):
+        for j in range(0,3):
+            dataset.loc[ (dataset.Age.isnull()) & (dataset.Sex == i) & dataset.Pclass == j+1], \
+                        'Age'] = guess_ages.[i,j]
+
+    dataset['Age'] = dataset['Age'].astype(int)
+
