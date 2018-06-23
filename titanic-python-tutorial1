@@ -90,7 +90,7 @@ print(train_df.head())
 
 # Now we can drop the 'Name' feature!
 train_df = train_df.drop(['Name','PassengerId'], axis = 1)
-test_df = test_df.drop(['Name','PassengerId'], axis = 1)
+test_df = test_df.drop(['Name'], axis = 1)
 combine = [train_df, test_df]
 print(train_df.shape, test_df.shape)
 
@@ -165,3 +165,117 @@ print(freq_port)
 for dataset in combine:
     dataset['Embarked'] = dataset['Embarked'].fillna(freq_port)
 print(train_df[['Embarked','Survived']].groupby(['Embarked'], as_index=False).mean().sort_values(by='Survived', ascending=False))
+# combine categorical feature into numeric
+for dataset in combine:
+    dataset['Embarked'] = dataset['Embarked'].map( {'S':0, 'C':1, 'Q':2}).astype(int)
+print(train_df.head())
+
+# We're going to put mode to the unknown value in the Fare feature
+test_df['Fare'].fillna(test_df['Fare'].dropna().median(), inplace=True)
+print(test_df.head())
+# ********* I don't get the process here *********
+# Why are we using the mode value in a test dataset?
+train_df['FareBand'] = pd.qcut(train_df['Fare'], 4)
+print(train_df[['FareBand','Survived']].groupby(['FareBand'], as_index=False).mean().sort_values(by='FareBand', ascending=True))
+# convert the Fare feature to ordinal values based on the FareBand
+for dataset in combine:
+    dataset.loc[ dataset['Fare'] <=7.91, 'Fare'] = 0
+    dataset.loc[(dataset['Fare'] > 7.91) & (dataset['Fare'] <=14.454),'Fare'] = 1
+    dataset.loc[(dataset['Fare'] > 14.454) & (dataset['Fare'] <=31), 'Fare'] = 2
+    dataset.loc[ dataset['Fare'] > 31, 'Fare'] = 3
+    dataset['Fare'] = dataset['Fare'].astype(int)
+train_df = train_df.drop(['FareBand'], axis=1)
+combine = [train_df, test_df]
+
+print(train_df.head(10))
+print(test_df.head(10))
+
+
+# Now we are ready to train a model and predict the required solution!
+# Our problem is a classification and regression problem
+# Need to review all the data mining methods that I've learned
+
+X_train = train_df.drop("Survived", axis=1)
+Y_train = train_df["Survived"]
+# ********** Why should I divide the two? We'll figure it out
+X_test = test_df.drop("PassengerId", axis=1).copy()
+print(X_train.shape, Y_train.shape, X_test.shape)
+
+# Logistic regression is a useful model to run early in the workflow
+logreg = LogisticRegression()
+logreg.fit(X_train, Y_train)
+Y_pred = logreg.predict(X_test)
+acc_log = round(logreg.score(X_train, Y_train) * 100, 2)
+print("Logistic Regression: ", acc_log)
+# by calculating the coefficient of the features,
+# we can use logistic regression to validate our assumptions and decisions
+# Positive coefficients increase the log-odds of the response
+# and increase the probability
+# Negative coefficients on the opposite
+coeff_df = pd.DataFrame(train_df.columns.delete(0))
+coeff_df.columns = ['Feature']
+coeff_df["Correlation"] = pd.Series(logreg.coef_[0])
+print(coeff_df.sort_values(by="Correlation", ascending=False))
+
+# Now we model using SVM. It generates a confidence score
+# which is higher than Logistics Regression model
+svc = SVC()
+svc.fit(X_train, Y_train)
+Y_pred = svc.predict(X_test)
+acc_svc = round(svc.score(X_train, Y_train) * 100, 2)
+print("SVC: ", acc_svc)
+
+# k-NN
+# confidence score is better than Logistics Regression
+# but worse than SVM
+knn = KNeighborsClassifier(n_neighbors = 3)
+knn.fit(X_train, Y_train)
+Y_pred = knn.predict(X_test)
+acc_knn = round(knn.score(X_train, Y_train) * 100, 2)
+print("k-NN: ", acc_knn)
+
+# Gaussian Naive Bayes
+# confidence score the lowest among the ones done til now
+gaussian = GaussianNB()
+gaussian.fit(X_train, Y_train)
+Y_pred = gaussian.predict(X_test)
+acc_gau = round(gaussian.score(X_train, Y_train) * 100, 2)
+print("Gaussian Naive Bayes: ", acc_gau)
+
+# Perceptron
+perceptron = Perceptron()
+perceptron.fit(X_train, Y_train)
+Y_pred = perceptron.predict(X_test)
+acc_perceptron = round(perceptron.score(X_train, Y_train) * 100, 2)
+print("Perceptron: ", acc_perceptron)
+
+# Linear SVC
+linear_svc = LinearSVC()
+linear_svc.fit(X_train, Y_train)
+Y_pred = linear_svc.predict(X_test)
+acc_linearsvc = round(linear_svc.score(X_train, Y_train) * 100, 2)
+print("Linear SVC: ", acc_linearsvc)
+
+# Stochastic Gradient Descent
+sgd = SGDClassifier()
+sgd.fit(X_train, Y_train)
+Y_pred = sgd.predict(X_test)
+acc_sgd = round(sgd.score(X_train, Y_train) * 100, 2)
+print("Stochastic Gradient Descent: ", acc_sgd)
+
+# Decision tree
+decision_tree = DecisionTreeClassifier()
+decision_tree.fit(X_train, Y_train)
+Y_pred = decision_tree.predict(X_test)
+acc_decisiontree = round(decision_tree.score(X_train, Y_train) * 100, 2)
+print("Decision Tree: ", acc_decisiontree)
+
+# Random Forest
+# Ensemble learning method for classification, regression, etc
+# Operate a multitude of decision trees
+# The model confidence score is the highest
+random_forest = RandomForestClassifier()
+random_forest.fit(X_train, Y_train)
+Y_pred = random_forest.predict(X_test)
+acc_rf = round(random_forest.score(X_train, Y_train) * 100, 2)
+print("Random Forest: ", acc_rf)
