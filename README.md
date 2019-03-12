@@ -1,3 +1,3 @@
 # everyday-practice
 
-Sample codes written with Python, R, and SQL
+Sample codes written in Python, R, and SQL
