@@ -1,3 +1,2 @@
-*.kicad_pcb linguist-detectable=true
-*.sch linguist-detectable=true
-tools/export_bom.py linguist-detectable=false
+*.sql linguist-detectable=true
+*.sql linguist-language=sql
