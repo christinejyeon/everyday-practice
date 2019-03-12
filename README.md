@@ -1,3 +1,3 @@
 # everyday-practice
 
-Made this repository to track what I did every day :D
+Sample codes written with Python, R, and SQL
