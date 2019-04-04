@@ -42,8 +42,8 @@ ks_dummied = ks_dummied.drop(["country","category","deadline_weekday","launched_
 ###################################### Question 1 ######################################
 # Provide summary statistics for the variables that are interesting/relevant to your analyses.
 og_description = ks.describe(include='all')
-print(og_description)
-
+print(og_description.transpose())
+og_description.transpose().to_excel("og_description.xlsx")
 
 
 ###################################### Question 2 ######################################
@@ -109,7 +109,7 @@ y_test_pred = knnrmodel.predict(X_test)
 
 mse = mean_squared_error(y_test, y_test_pred)
 print(mse)
-# Average mse: 2495078860.480824
+# Average mse: 2495078860.480824 (iteration:10)
 
 
 ################### Random forest regressor
@@ -237,38 +237,11 @@ X_std = logr_scaler.fit_transform(X)
 X_train, X_test, y_train, y_test = train_test_split(X_std,y,test_size=0.3,random_state=5)
 
 logr = LogisticRegression()
-logrmodel = logr.fit(X, y)
-sfm = SelectFromModel(logrmodel, threshold=1) # only get the variables above the threshold
-sfm.fit(X,y)
-for feature_list_index in sfm.get_support(indices=True):
-    print(X.columns[feature_list_index])
-rfe = RFE(logrmodel, 5)
-model = rfe.fit(X,y)
-temp = pandas.DataFrame(list(zip(X.columns,model.ranking_)), columns=['predictor','ranking'])
-# staff_pick, category_Blues, category_Places, category_Shorts, maybe category_Web, thrillers, webseries
-#
-
-
-X = ks_classification.drop(["state","spotlight","goal","usd_pledged"], axis=1)
-y = ks_classification["state"]
-X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.3,random_state=5)
-
-logr = LogisticRegression()
 logrmodel = logr.fit(X_train, y_train)
-logrmodel.intercept_
-logrmodel.coef_
 
 y_test_pred = logrmodel.predict(X_test)
 accuracy_score(y_test,y_test_pred)
-
-temp = []
-for i in range(1,33):
-    logrmodel = logr.fit(X_train, y_train)
-    y_test_pred = logrmodel.predict(X_test)
-    temp.append(accuracy_score(y_test, y_test_pred))
-sum(temp)/float(len(temp))
-
-# average accuracy score doesn't really go up to 0.85
+# Average accuracy: 84.38 (iteration:10)
 
 
 ################### kNN
@@ -286,14 +259,12 @@ for i in range(24,40):
     print(accuracy_score(y_test,y_test_pred))
 # best n_neighbors is 24 and accuracy is 84.17%
 
-
 knn = KNeighborsClassifier(n_neighbors=24)
 knnmodel = knn.fit(X_train, y_train)
 y_test_pred = knnmodel.predict(X_test)
 
 accuracy_score(y_test,y_test_pred)
 # Average accuracy: 84.17 (iteration:10)
-
 
 
 ################### Random Forest
@@ -330,14 +301,12 @@ for i in range(2,10):
     print(accuracy_score(y_test, y_test_pred))
 # best max_features is 6 and accuracy is 85.58
 
-
 randomforest = RandomForestClassifier(max_features=4,max_depth=6)
 rfmodel = randomforest.fit(X_train, y_train)
 y_test_pred = rfmodel.predict(X_test)
 
 accuracy_score(y_test, y_test_pred)
 # Average accuracy: 85.57 (iteration:10)
-
 
 
 ################### SVM
@@ -363,7 +332,6 @@ accuracy_score(y_test, y_test_pred)
 # Average accuracy score: 82.20 (iteration:10)
 
 
-
 ################### ANN
 from sklearn.neural_network import MLPClassifier
 X = ks_classification.drop(["state","spotlight","goal","usd_pledged"], axis=1)
@@ -384,8 +352,7 @@ for i in range(1,11):
     print(i,":",numpy.average(scores))
 # best hidden_layer_sizes is (4,6)
 
-
-mlp = MLPClassifier(hidden_layer_sizes=(4,6), max_iter=1000, random_state=5)
+mlp = MLPClassifier(hidden_layer_sizes=(4,6), max_iter=1000)
 annmodel = mlp.fit(X_train, y_train)
 y_test_pred = annmodel.predict(X_test)
 accuracy_score(y_test, y_test_pred)
@@ -427,10 +394,34 @@ kmeans = KMeans(n_clusters=10)
 model = kmeans.fit(X_std)
 labels = model.predict(X_std)
 
+# Observing the characteristics in each cluster
+X_with_clusters = pandas.concat([X.reset_index(drop=True),pandas.DataFrame(labels, columns=["labels"])], axis=1)
+
+cluster0 = X_with_clusters.loc[X_with_clusters["labels"]==0]
+cluster1 = X_with_clusters.loc[X_with_clusters["labels"]==1]
+cluster2 = X_with_clusters.loc[X_with_clusters["labels"]==2]
+cluster3 = X_with_clusters.loc[X_with_clusters["labels"]==3]
+cluster4 = X_with_clusters.loc[X_with_clusters["labels"]==4]
+cluster5 = X_with_clusters.loc[X_with_clusters["labels"]==5]
+cluster6 = X_with_clusters.loc[X_with_clusters["labels"]==6]
+cluster7 = X_with_clusters.loc[X_with_clusters["labels"]==7]
+cluster8 = X_with_clusters.loc[X_with_clusters["labels"]==8]
+cluster9 = X_with_clusters.loc[X_with_clusters["labels"]==9]
+
+cluster0 = cluster0.describe(include='all').transpose()
+cluster1 = cluster1.describe(include='all').transpose()
+cluster2 = cluster2.describe(include='all').transpose()
+cluster3 = cluster3.describe(include='all').transpose()
+cluster4 = cluster4.describe(include='all').transpose()
+cluster5 = cluster5.describe(include='all').transpose()
+cluster6 = cluster6.describe(include='all').transpose()
+cluster7 = cluster7.describe(include='all').transpose()
+cluster8 = cluster8.describe(include='all').transpose()
+cluster9 = cluster9.describe(include='all').transpose()
+
 from sklearn.metrics import silhouette_score
 silhouette_score(X_std, labels)
 # Average score: 0.61 (iteration:10)
-
 
 from sklearn.metrics import calinski_harabaz_score
 from scipy.stats import f
@@ -445,12 +436,7 @@ pvalue
 
 
 
-
-
-
 ###################################### Validation ######################################
-
-
 ks_prof = pandas.read_excel("/Users/Christine/Documents/INSY 652/Kickstarter.xlsx")
 ks_prof = ks_prof.drop(['project_id','name','pledged','currency','deadline','state_changed_at', 'created_at',
               'launched_at','name_len','name_len_clean','blurb_len','blurb_len_clean','state_changed_at_weekday',
@@ -487,7 +473,7 @@ y = ks_prof_regression["usd_pledged"]
 knnr_scaler = StandardScaler()
 X_std = knnr_scaler.fit_transform(X)
 
-y_pred = knnrmodel.predict(X)
+y_pred = knnrmodel.predict(X_std)
 mse = mean_squared_error(y, y_pred)
 print(mse)
 
@@ -499,7 +485,7 @@ y = ks_prof_classification["state"]
 mlp_scaler = StandardScaler()
 X_std = mlp_scaler.fit_transform(X)
 
-y_pred = annmodel.predict(X)
+y_pred = annmodel.predict(X_std)
 accuracy_score(y, y_pred)
 print(accuracy_score(y, y_pred))
 
