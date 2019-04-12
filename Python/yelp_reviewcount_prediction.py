@@ -1,16 +1,13 @@
 import pandas
 import numpy
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error
 
 yelp_biz_hrs = pandas.read_csv("/Users/Christine/Downloads/yelp_business_hours.csv")
 yelp_biz = pandas.read_csv("/Users/Christine/Downloads/yelp_business.csv")
 yelp_biz.columns
 yelp_biz = yelp_biz.drop(["name", "neighborhood", "address", "city", "postal_code"], axis=1)
-og_categories = ["Restaurants", "Shopping", "Nightlife", "Active Life", "Beauty & Spas", "Automotive"
-                 "Home Services",
-                 "Coffee & Tea", "Food", "Arts & Entertainment", "Health & Medical",
-                 "Professional Services", "Pets", "Real Estate", "Hotels & Travel", "Local Services",
-                 "Event Planning & Services", "Public Services & Government", "Financial Services",
-                 "Education", "Religious Organizations", "Local Flavor", "Mass Media"]
 
 temp = yelp_biz_hrs.copy()
 temp = temp.drop(["business_id"], axis=1)
@@ -50,26 +47,27 @@ yelp_biz_hrs.rename(columns={"total":"sunday_total"}, inplace=True)
 yelp_biz_hrs = yelp_biz_hrs.drop(["monday","tuesday","wednesday","thursday","friday","saturday","sunday"], axis=1)
 yelp_biz_hrs["week_total"] = yelp_biz_hrs.fillna(0)["monday_total"]+yelp_biz_hrs.fillna(0)["tuesday_total"]+yelp_biz_hrs.fillna(0)["wednesday_total"]+yelp_biz_hrs.fillna(0)["thursday_total"]+yelp_biz_hrs.fillna(0)["friday_total"]+yelp_biz_hrs.fillna(0)["saturday_total"]+yelp_biz_hrs.fillna(0)["sunday_total"]
 
-
 yelp_biz.shape
 yelp_biz_hrs.shape
 
 og_data = pandas.merge(yelp_biz,yelp_biz_hrs)
 og_data = og_data.drop(["business_id"], axis=1)
 #og_data.to_csv("og_data.csv")
+#og_data = pandas.read_csv("og_data.csv")
+og_data = og_data.drop(["Unnamed: 0"], axis=1)
 
-#### Preparing data for regression (Restaurants)
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_squared_error
-og_restaurants = og_data[og_data["categories"].str.contains("Restaurants")]
-og_restaurants = og_restaurants.fillna(0)
-og_restaurants = og_restaurants.drop(["categories"], axis=1)
-og_restaurants = og_restaurants.drop(["state"],axis=1)
+og_data["num_categories"] = og_data["categories"].str.split(";").apply(len)
+og_data = og_data.drop(["categories"], axis=1)
+
+
+###################################### Regression ######################################
+og_regression = og_data.copy()
+og_regression = og_regression.fillna(0)
+og_regression = og_regression.drop(["state"],axis=1)
 
 #### Feature selection for regression tasks
-X = og_restaurants.drop(["review_count"], axis=1)
-y = og_restaurants["review_count"]
+X = og_regression.drop(["review_count"], axis=1)
+y = og_regression["review_count"]
 lasso_scaler = StandardScaler()
 X_std = lasso_scaler.fit_transform(X)
 from sklearn.linear_model import Lasso
@@ -77,113 +75,125 @@ model = Lasso(alpha=0.01, positive=True) # alpha here is the penalty term ?????
 model.fit(X_std,y)
 temp = pandas.DataFrame(list(zip(X.columns,model.coef_)), columns=['predictor','coefficient'])
 temp = temp.sort_values(by='coefficient',ascending=False)
+# sunday_total 10.10904
+# saturday_total 5.74567
+# num_categories 5.45640
+# stars 2.31846
+# is_open 1.79111
 
 ################### Linear Regression
 from sklearn.linear_model import LinearRegression
-X = og_restaurants[["stars","sunday_total","is_open","saturday_total"]]
-y = og_restaurants["review_count"]
+X = og_regression.drop(["review_count"], axis=1)
+y = og_regression["review_count"]
 lir_scaler = StandardScaler()
 X_std = lir_scaler.fit_transform(X)
-X_train, X_test, y_train, y_test = train_test_split(X_std, y, test_size=0.3, random_state=5)
+X_train, X_test, y_train, y_test = train_test_split(X_std, y, test_size=0.2, random_state=5)
 
 lir = LinearRegression()
 lirmodel = lir.fit(X_train, y_train)
 y_test_pred = lirmodel.predict(X_test)
-
 mse = mean_squared_error(y_test, y_test_pred)
 print(mse)
-#20014.579379
+
+#8893.89329967535
+#9442.034046201485
 
 
 ################### KNN regressor
 from sklearn.neighbors import KNeighborsRegressor
-X = og_restaurants[["stars","sunday_total","is_open","saturday_total"]]
-y = og_restaurants["review_count"]
+X = og_regression.drop(["review_count"], axis=1)
+y = og_regression["review_count"]
 knnr_scaler = StandardScaler()
 X_std = knnr_scaler.fit_transform(X)
-X_train, X_test, y_train, y_test = train_test_split(X_std, y, test_size=0.3, random_state=5)
+X_train, X_test, y_train, y_test = train_test_split(X_std, y, test_size=0.2, random_state=5)
+X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=5)
 
-for i in range(49,71):
+for i in range(2,31):
     knnr = KNeighborsRegressor(n_neighbors=i)
     knnrmodel = knnr.fit(X_train, y_train)
-    y_test_pred = knnrmodel.predict(X_test)
-    mse = mean_squared_error(y_test, y_test_pred)
-    print(mse)
-# The best number for n_neighbors is..
-# When n_neighbors = 23 -> mse = 20119.1049
-# But it decreases as n_neighbors increases.
-# So far when n_neighbors = 68 -> mse = 19495.2602
+    y_val_pred = knnrmodel.predict(X_val)
+    mse = mean_squared_error(y_val, y_val_pred)
+    print(i, ":", mse)
+# Best n_neighbors = 30? ...
+# Did not go too deep as it was taking too much time & it was of high possibility that it would just decrease more and more
 
-knnr = KNeighborsRegressor(n_neighbors=23)
+start = time.time()
+knnr = KNeighborsRegressor(n_neighbors=30)
 knnrmodel = knnr.fit(X_train, y_train)
 y_test_pred = knnrmodel.predict(X_test)
-
 mse = mean_squared_error(y_test, y_test_pred)
 print(mse)
-# Average mse: 20119.1049
+end = time.time()
+end-start #19.17839002609253
+#8625.571728151077
 
 
 ################### Random forest regressor
 from sklearn.ensemble import RandomForestRegressor
-X = og_restaurants[["stars","sunday_total","is_open","saturday_total"]]
-y = og_restaurants["review_count"]
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=5)
+X = og_regression.drop(["review_count"], axis=1)
+y = og_regression["review_count"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=5)
+X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=5)
 
-for i in range(2,5):
+for i in range(2,15):
     rfr = RandomForestRegressor(max_features=i, random_state=5)
     rfrmodel = rfr.fit(X_train, y_train)
-    y_test_pred = rfrmodel.predict(X_test)
-    mse = mean_squared_error(y_test, y_test_pred)
-    print(mse)
+    y_val_pred = rfrmodel.predict(X_val)
+    mse = mean_squared_error(y_val, y_val_pred)
+    print(i, ":", mse)
 # Best max_features = 3
 
 for i in range(2,20):
     rfr = RandomForestRegressor(max_features=3, max_depth=i, random_state=5)
     rfrmodel = rfr.fit(X_train, y_train)
-    y_test_pred = rfrmodel.predict(X_test)
-    mse = mean_squared_error(y_test, y_test_pred)
-    print(mse)
-# Best max_depth = 6
+    y_val_pred = rfrmodel.predict(X_val)
+    mse = mean_squared_error(y_val, y_val_pred)
+    print(i, ":", mse)
+# Best max_depth = 15
 
-for i in range(2,10):
-    rfr = RandomForestRegressor(max_features=2, max_depth=6, min_samples_split=i, random_state=5)
+for i in range(2,15):
+    rfr = RandomForestRegressor(max_features=3, max_depth=15, min_samples_split=i, random_state=5)
     rfrmodel = rfr.fit(X_train, y_train)
-    y_test_pred = rfrmodel.predict(X_test)
-    mse = mean_squared_error(y_test, y_test_pred)
-    print(mse)
-# Best min_samples_split = 2
+    y_val_pred = rfrmodel.predict(X_val)
+    mse = mean_squared_error(y_val, y_val_pred)
+    print(i, ":", mse)
+# Best min_samples_split = 13
 
 temp = []
 for i in range(10):
-    rfr = RandomForestRegressor(max_features=2, max_depth=6, min_samples_split=2)
+    rfr = RandomForestRegressor(max_features=3, max_depth=15, min_samples_split=13)
     rfrmodel = rfr.fit(X_train, y_train)
     y_test_pred = rfrmodel.predict(X_test)
     mse = mean_squared_error(y_test, y_test_pred)
     temp.append(mse)
 sum(temp)/len(temp)
 
-rfr = RandomForestRegressor(max_features=2, max_depth=6, min_samples_split=2)
+start = time.time()
+rfr = RandomForestRegressor(max_features=3, max_depth=15, min_samples_split=13)
 rfrmodel = rfr.fit(X_train, y_train)
 y_test_pred = rfrmodel.predict(X_test)
-
 mse = mean_squared_error(y_test, y_test_pred)
 print(mse)
-# Average mse: 19448.1278 (iteration:10)
+end = time.time()
+end-start #2.1161742210388184
+
+# Average mse: 8141.1473061857305 (iteration:10)
 
 
 ################### SVM regressor
 from sklearn.svm import SVR
-X = og_restaurants[["stars","sunday_total","is_open","saturday_total"]]
-y = og_restaurants["review_count"]
+X = og_regression.drop(["review_count"], axis=1)
+y = og_regression["review_count"]
 svmr_scaler = StandardScaler()
 X_std = svmr_scaler.fit_transform(X)
-X_train, X_test, y_train, y_test = train_test_split(X_std, y, test_size=0.3, random_state=5)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=5)
+X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=5)
 
 for i in range(1,10):
     svr = SVR(kernel="linear", epsilon=0.1, C=i)
     svrmodel = svr.fit(X_train, y_train)
-    y_test_pred = svrmodel.predict(X_test)
-    mse = mean_squared_error(y_test, y_test_pred)
+    y_val_pred = svrmodel.predict(X_val)
+    mse = mean_squared_error(y_val, y_val_pred)
     print(mse)
 # Best C = 5
 
@@ -196,3 +206,36 @@ print(mse)
 # Average mse: 21927.4464 (iteration:10)
 
 
+################### ANN regressor
+from sklearn.neural_network import MLPRegressor
+X = og_regression.drop(["review_count"], axis=1)
+y = og_regression["review_count"]
+mlpr_scaler = StandardScaler()
+X_std = mlpr_scaler.fit_transform(X)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=5)
+X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=5)
+
+for i in range(1,31):
+    annr = MLPRegressor(hidden_layer_sizes=(i), max_iter=1000, random_state=5)
+    annrmodel = annr.fit(X_train, y_train)
+    y_val_pred = annrmodel.predict(X_val)
+    mse = mean_squared_error(y_val, y_val_pred)
+    print(mse)
+# Best hidden_layer_size = 27, mse = 8050.91754237945
+
+temp = []
+for i in range(10):
+    annr = MLPRegressor(hidden_layer_sizes=(27), max_iter=1000)
+    annrmodel = annr.fit(X_train, y_train)
+    y_test_pred = annrmodel.predict(X_test)
+    mse = mean_squared_error(y_test, y_test_pred)
+    temp.append(mse)
+sum(temp)/len(temp)
+
+annr = MLPRegressor(hidden_layer_sizes=(26,21), max_iter=1000)
+annrmodel = annr.fit(X_train, y_train)
+y_test_pred = annrmodel.predict(X_test)
+
+mse = mean_squared_error(y_test, y_test_pred)
+print(mse)
+# Average mse: 19417.7579 (iteration:10)
